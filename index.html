@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>南山校安室重要公告</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 20px;
+        }
+        .announcement-card {
+            margin-bottom: 15px;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .announcement-date {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .announcements-frame {
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: 600px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .announcements-header {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 5px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .attachment-name {
+            flex-grow: 1;
+            margin-left: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .attachment-icon {
+            color: #6c757d;
+        }
+        .attachment-list {
+            margin-top: 10px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .admin-controls {
+            display: none;
+        }
+        .logged-in-user {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 登入狀態顯示 -->
+        <div id="logged-in-user" class="logged-in-user" style="display: none;">
+            已登入: <span id="username-display"></span>
+            <button id="logout-btn" class="btn btn-sm btn-outline-danger ms-2">登出</button>
+        </div>
+        
+        <h1 class="text-center my-4">南山校安室重要公告</h1>
+        
+        <!-- 登入表單 -->
+        <div id="login-container" class="login-container">
+            <h3 class="text-center mb-4">管理員登入</h3>
+            <form id="login-form">
+                <div class="mb-3">
+                    <label for="login-username" class="form-label">帳號</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="輸入帳號" required>
+                </div>
+                <div class="mb-3">
+                    <label for="login-password" class="form-label">密碼</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="輸入密碼" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">登入</button>
+            </form>
+        </div>
+        
+        <!-- 消息列表 -->
+        <div id="announcements">
+            <div class="announcements-header">
+                <h2>最新消息</h2>
+            </div>
+            <div class="announcements-frame">
+                <div id="announcements-list"></div>
+            </div>
+        </div>
+        
+        <!-- 新增消息表單 (登入後顯示) -->
+        <div id="post-form-container" class="form-container admin-controls">
+            <h3>新增訊息</h3>
+            <form id="post-form">
+                <div class="mb-3">
+                    <label for="title" class="form-label">標題</label>
+                    <input type="text" id="title" class="form-control" placeholder="輸入標題" required>
+                </div>
+                <div class="mb-3">
+                    <label for="content" class="form-label">內容</label>
+                    <textarea id="content" class="form-control" placeholder="輸入內容" rows="3" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="author" class="form-label">發布者名稱</label>
+                    <input type="text" id="author" class="form-control" placeholder="您的名字" required>
+                </div>
+                <div class="mb-3">
+                    <label for="date" class="form-label">日期</label>
+                    <input type="date" id="date" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label for="attachment" class="form-label">附件</label>
+                    <input type="file" id="attachment" class="form-control" multiple>
+                    <small class="text-muted">可上傳多個檔案</small>
+                    <div id="attachment-list" class="attachment-list"></div>
+                </div>
+                <button type="submit" class="btn btn-success">新增訊息</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    
+    <script>
+        // Firebase配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDIBZcv7FDus86I_tqMNdGaTGLFUH9TkGg",
+            authDomain: "new123-88a1a.firebaseapp.com",
+            databaseURL: "https://new123-88a1a-default-rtdb.firebaseio.com",
+            projectId: "new123-88a1a",
+            storageBucket: "new123-88a1a.firebasestorage.app",
+            messagingSenderId: "1098459270837",
+            appId: "1:1098459270837:web:51532d8f2cffbf9271b8fc"
+        };
+
+        // 初始化Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const storage = firebase.storage();
+        const auth = firebase.auth();
+
+        // 預設管理員帳號密碼 (僅為演示用，實際應用應使用Firebase Authentication)
+        const ADMIN_CREDENTIALS = {
+            username: "nansan",
+            password: "nansan123"
+        };
+
+        // DOM元素
+        const loginContainer = document.getElementById('login-container');
+        const loginForm = document.getElementById('login-form');
+        const loggedInUser = document.getElementById('logged-in-user');
+        const usernameDisplay = document.getElementById('username-display');
+        const logoutBtn = document.getElementById('logout-btn');
+        const postFormContainer = document.getElementById('post-form-container');
+        const postForm = document.getElementById('post-form');
+        const announcementsList = document.getElementById('announcements-list');
+        const attachmentInput = document.getElementById('attachment');
+        const attachmentList = document.getElementById('attachment-list');
+
+        // 設置日期預設值為今天
+        document.getElementById('date').valueAsDate = new Date();
+
+        // 保持單一數據庫監聽器引用
+        let isInitialLoad = true;
+        let announcementsRef = null;
+
+        // 儲存已選擇的檔案
+        let selectedFiles = [];
+
+        // 顯示/隱藏管理控制項
+        function toggleAdminControls(isLoggedIn, username = '') {
+            if (isLoggedIn) {
+                loginContainer.style.display = 'none';
+                postFormContainer.style.display = 'block';
+                loggedInUser.style.display = 'block';
+                usernameDisplay.textContent = username;
+            } else {
+                loginContainer.style.display = 'block';
+                postFormContainer.style.display = 'none';
+                loggedInUser.style.display = 'none';
+            }
+        }
+
+        // 登入處理
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            
+            // 簡單的驗證 (實際應用應使用Firebase Authentication)
+            if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+                toggleAdminControls(true, username);
+                loginForm.reset();
+            } else {
+                alert('帳號或密碼錯誤');
+            }
+        });
+
+        // 登出處理
+        logoutBtn.addEventListener('click', () => {
+            toggleAdminControls(false);
+        });
+
+        // 顯示已選擇的檔案列表
+        function updateAttachmentList() {
+            attachmentList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'attachment-item';
+                
+                // 根據檔案類型選擇不同的圖標
+                let iconClass = 'bi bi-file-earmark';
+                if (file.type.startsWith('image/')) {
+                    iconClass = 'bi bi-image';
+                } else if (file.type.startsWith('application/pdf')) {
+                    iconClass = 'bi bi-file-earmark-pdf';
+                } else if (file.type.includes('word') || file.type.includes('document')) {
+                    iconClass = 'bi bi-file-earmark-word';
+                } else if (file.type.includes('excel') || file.type.includes('spreadsheet')) {
+                    iconClass = 'bi bi-file-earmark-excel';
+                } else if (file.type.includes('powerpoint') || file.type.includes('presentation')) {
+                    iconClass = 'bi bi-file-earmark-ppt';
+                } else if (file.type.includes('zip') || file.type.includes('compressed')) {
+                    iconClass = 'bi bi-file-earmark-zip';
+                }
+                
+                fileItem.innerHTML = `
+                    <i class="bi ${iconClass} attachment-icon"></i>
+                    <span class="attachment-name">${file.name}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-index="${index}">刪除</button>
+                `;
+                attachmentList.appendChild(fileItem);
+            });
+
+            // 添加刪除按鈕事件監聽
+            document.querySelectorAll('#attachment-list button').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    selectedFiles.splice(index, 1);
+                    updateAttachmentList();
+                });
+            });
+        }
+
+        // 監聽檔案選擇
+        attachmentInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            selectedFiles = selectedFiles.concat(files);
+            updateAttachmentList();
+            e.target.value = ''; // 重置input以便可以再次選擇相同檔案
+        });
+
+        // 上傳檔案到Firebase Storage
+        async function uploadFiles(announcementId) {
+            const uploadPromises = selectedFiles.map(file => {
+                const filePath = `attachments/${announcementId}/${file.name}`;
+                const fileRef = storage.ref(filePath);
+                return fileRef.put(file).then(snapshot => snapshot.ref.getDownloadURL());
+            });
+
+            try {
+                const downloadURLs = await Promise.all(uploadPromises);
+                return downloadURLs.map((url, index) => ({
+                    name: selectedFiles[index].name,
+                    url: url,
+                    type: selectedFiles[index].type
+                }));
+            } catch (error) {
+                console.error('檔案上傳失敗:', error);
+                throw error;
+            }
+        }
+
+        // 加載現有消息
+        function loadAnnouncements() {
+            // 只在首次加載時設置監聽器
+            if (isInitialLoad) {
+                isInitialLoad = false;
+                
+                announcementsRef = database.ref('announcements').orderByChild('createdAt');
+                
+                announcementsRef.on('value', snapshot => {
+                    announcementsList.innerHTML = '';
+                    
+                    const announcements = [];
+                    snapshot.forEach(childSnapshot => {
+                        announcements.push({
+                            id: childSnapshot.key,
+                            ...childSnapshot.val()
+                        });
+                    });
+                    
+                    // 按日期排序 (最新的在前面)
+                    announcements.sort((a, b) => b.createdAt - a.createdAt);
+                    
+                    // 顯示消息
+                    announcements.forEach(announcement => {
+                        const announcementElement = document.createElement('div');
+                        announcementElement.className = 'announcement-card';
+                        
+                        // 如果有附件，生成附件列表HTML
+                        let attachmentsHtml = '';
+                        if (announcement.attachments && announcement.attachments.length > 0) {
+                            attachmentsHtml = `
+                                <div class="mt-3">
+                                    <small class="text-muted">附件:</small>
+                                    <ul class="list-unstyled">
+                                        ${announcement.attachments.map(attachment => `
+                                            <li>
+                                                <a href="${attachment.url}" target="_blank" class="text-decoration-none">
+                                                    <i class="bi ${getFileIconClass(attachment.type)} me-1"></i>
+                                                    ${attachment.name}
+                                                </a>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+                        
+                        // 檢查是否登入以顯示刪除按鈕
+                        const deleteButton = loggedInUser.style.display === 'block' 
+                            ? `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${announcement.id}">刪除</button>`
+                            : '';
+                        
+                        announcementElement.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-start">
+                                <h4 class="mb-2">${announcement.title}</h4>
+                                <small class="announcement-date">${formatDate(announcement.date)}</small>
+                            </div>
+                            <p class="mb-2">${formatContent(announcement.content)}</p>
+                            ${attachmentsHtml}
+                            <div class="d-flex justify-content-between align-items-end">
+                                <small class="text-muted">發布者: ${announcement.author || '匿名'}</small>
+                                ${deleteButton}
+                            </div>
+                        `;
+                        announcementsList.appendChild(announcementElement);
+                    });
+                    
+                    // 添加刪除按鈕事件監聽
+                    document.querySelectorAll('.delete-btn').forEach(btn => {
+                        btn.addEventListener('click', e => {
+                            e.stopPropagation();
+                            if (confirm('確定要刪除此消息嗎？')) {
+                                database.ref(`announcements/${e.target.dataset.id}`).remove();
+                            }
+                        });
+                    });
+                }, error => {
+                    console.error('讀取數據失敗:', error);
+                });
+            }
+        }
+
+        // 根據檔案類型獲取圖標類別
+        function getFileIconClass(fileType) {
+            if (fileType.startsWith('image/')) {
+                return 'bi-image';
+            } else if (fileType.startsWith('application/pdf')) {
+                return 'bi-file-earmark-pdf';
+            } else if (fileType.includes('word') || fileType.includes('document')) {
+                return 'bi-file-earmark-word';
+            } else if (fileType.includes('excel') || fileType.includes('spreadsheet')) {
+                return 'bi-file-earmark-excel';
+            } else if (fileType.includes('powerpoint') || fileType.includes('presentation')) {
+                return 'bi-file-earmark-ppt';
+            } else if (fileType.includes('zip') || fileType.includes('compressed')) {
+                return 'bi-file-earmark-zip';
+            }
+            return 'bi-file-earmark';
+        }
+
+        // 格式化日期顯示
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            // 將YYYY-MM-DD轉換為YYYY/MM/DD
+            return dateString.replace(/-/g, '/');
+        }
+
+        // 格式化內容顯示 (處理換行)
+        function formatContent(content) {
+            if (!content) return '';
+            return content.replace(/\n/g, '<br>');
+        }
+
+        // 初始化加載消息
+        loadAnnouncements();
+
+        // 發布新消息
+        postForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const author = document.getElementById('author').value;
+            const date = document.getElementById('date').value || new Date().toISOString().split('T')[0];
+            
+            if (!title || !content || !author) {
+                alert('請填寫所有必填欄位');
+                return;
+            }
+            
+            try {
+                // 先創建公告記錄
+                const newAnnouncementRef = database.ref('announcements').push();
+                const announcementId = newAnnouncementRef.key;
+                
+                let attachments = [];
+                if (selectedFiles.length > 0) {
+                    // 上傳附件
+                    attachments = await uploadFiles(announcementId);
+                }
+                
+                // 更新公告記錄，包含附件信息
+                const newAnnouncement = {
+                    title,
+                    content,
+                    author,
+                    date,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    attachments: attachments.length > 0 ? attachments : null
+                };
+                
+                await newAnnouncementRef.set(newAnnouncement);
+                
+                // 重置表單
+                postForm.reset();
+                document.getElementById('date').valueAsDate = new Date();
+                selectedFiles = [];
+                updateAttachmentList();
+                
+            } catch (error) {
+                console.error('發布失敗:', error);
+                alert('發布失敗，請稍後再試');
+            }
+        });
+
+        // 初始化時隱藏管理控制項
+        toggleAdminControls(false);
+    </script>
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
+</body>
+</html>
